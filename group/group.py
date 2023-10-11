@@ -6,6 +6,7 @@ try:
 except ImportError:
     from xml.etree.ElementTree import XML
 import os
+from pathlib import Path
 import re
 import shutil
 import subprocess
@@ -14,19 +15,22 @@ from tkinter import *
 from tkinter import filedialog, ttk
 import zipfile
 
-import jieba
+import nltk
 from nltk.tokenize import sent_tokenize, word_tokenize
 
+import jieba
 from zhon_hanzi import sentence as zh_sent_re
+
 zh_sent_compiled_re = re.compile(zh_sent_re)
 
-cwd = os.path.dirname(os.path.abspath(__file__))
-existing_nltk_data = os.environ.get("NLTK_DATA", "")
-os.environ["NLTK_DATA"] = f"{cwd}{os.pathsep}{existing_nltk_data}"
+
+cwd = Path(__file__).parent
+nltk.data.path = [cwd.parent / "nltk_data"]
 
 DOCX_NAMESPACE = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 DOCX_PARA = DOCX_NAMESPACE + "p"
 DOCX_TEXT = DOCX_NAMESPACE + "t"
+
 
 def read_docx(path: str) -> str:
     """
@@ -51,17 +55,22 @@ def read_txt(path: str) -> str:
         content = f.read()
     return content
 
-def tokenize_sent_en(s:str) -> list[str]:
+
+def tokenize_sent_en(s: str) -> list[str]:
     return sent_tokenize(s)
 
-def tokenize_sent_zh(s:str) -> list[str]:
+
+def tokenize_sent_zh(s: str) -> list[str]:
     return zh_sent_compiled_re.findall(s)
 
-def tokenize_word_en(s:str) -> list[str]:
+
+def tokenize_word_en(s: str) -> list[str]:
     return word_tokenize(s)
 
-def tokenize_word_zh(s:str) -> list[str]:
+
+def tokenize_word_zh(s: str) -> list[str]:
     return list(jieba.cut(s))
+
 
 def process_file(file_path):
     if not file_path:
@@ -106,7 +115,9 @@ def process_file(file_path):
 def process_folder(folder_path):
     if folder_path:
         write_to_log(f"Processing folder: {folder_path}")
-        text_files = [f for f in os.listdir(folder_path) if (f.endswith(".txt") or f.endswith(".docx"))]
+        text_files = [
+            f for f in os.listdir(folder_path) if (f.endswith(".txt") or f.endswith(".docx"))
+        ]
         if not text_files:
             write_to_log("No text files found in the selected folder.")
             return
@@ -124,60 +135,70 @@ def write_to_log(msg):
     log_console.insert("end", msg)
     log_console["state"] = "disabled"
 
-def start_gui(*, with_restart_button:bool=False):
+
+def start_gui(*, with_restart_button: bool = False):
     global root
     root = Tk()
     root.title("Group Sentences by Length")
-    mainframe = ttk.Frame(root)
+    mainframe = ttk.Frame(root, padding=3, borderwidth=5, relief="ridge")
     mainframe.grid(column=0, row=0, sticky="nswe")
 
     style = ttk.Style()
     style.theme_use("alt")
 
     process_file_button = ttk.Button(
-        mainframe, text="Process File", command=lambda: process_file(filedialog.askopenfilename())
+        mainframe,
+        text="Process File",
+        command=lambda: process_file(filedialog.askopenfilename()),
     )
-    process_file_button.grid(column=2, row=2, sticky="w")
+    process_file_button.grid(column=2, row=3, sticky="w")
 
     process_folder_button = ttk.Button(
-        mainframe, text="Process Folder", command=lambda: process_folder(filedialog.askdirectory())
+        mainframe,
+        text="Process Folder",
+        command=lambda: process_folder(filedialog.askdirectory()),
     )
-    process_folder_button.grid(column=3, row=2, sticky="w")
+    process_folder_button.grid(column=3, row=3, sticky="w")
 
     ttk.Label(mainframe, text="Language:").grid(column=1, row=1, sticky="se")
     global langvar
     langvar = StringVar()
-    lang = ttk.Combobox(mainframe, textvariable=langvar)
-    lang['values'] = ('Chinese', 'English')
-    lang.set("Chinese")
-    lang.state(["readonly"]) # only predefined values are allowed, users cannot enter their own
-    lang.grid(column=2, row=1, sticky="sw")
+    zh = ttk.Radiobutton(mainframe, variable=langvar, text="Chinese", value="Chinese").grid(column=2, row=1, sticky="sw")
+    en = ttk.Radiobutton(mainframe, variable=langvar, text="English", value="English").grid(column=3, row=1, sticky="sw")
+    langvar.set("Chinese")
+
     global sent_tokenize_mapping
     sent_tokenize_mapping = {"Chinese": tokenize_sent_zh, "English": tokenize_sent_en}
     global word_tokenize_mapping
     word_tokenize_mapping = {"Chinese": tokenize_word_zh, "English": tokenize_word_en}
 
-    # Checkbox to ignore punctuation marks
     global ignore_punctuation_var
-    ignore_punctuation_var = BooleanVar()
+    ignore_punctuation_var = BooleanVar(value=False)
     ignore_punctuation_checkbox = ttk.Checkbutton(
-        mainframe, text="Ignore Punctuation Marks", variable=ignore_punctuation_var
+        mainframe,
+        text="Ignore Punctuation Marks",
+        variable=ignore_punctuation_var,
+        onvalue=True,
+        offvalue=False,
     )
-    ignore_punctuation_checkbox.grid(column=3, row=1, sticky="sw")
+    ignore_punctuation_checkbox.grid(column=2, row=2, columnspan=2, sticky="sw")
 
     global log_console
-    log_console = Text(mainframe, state="disabled", width=80, height=24, wrap="none")
-    log_console.grid(column=1, row=3, columnspan=5, sticky="nswe")
+    log_console = Text(mainframe, state="disabled", width=80, height=24, wrap="char")
+    log_console.grid(column=1, row=4, columnspan=5, sticky="nswe")
 
     if with_restart_button:
         # for tuning and debugging
-        ttk.Button(mainframe, text="Restart", command=restart).grid(column=3, row=4, sticky="sw")
-        ttk.Button(mainframe, text="Quit", command=lambda :root.destroy()).grid(column=4, row=4, sticky="sw")
+        ttk.Button(mainframe, text="Restart", command=restart).grid(column=4, row=5, sticky="sw")
+        ttk.Button(mainframe, text="Quit", command=lambda: root.destroy()).grid(
+            column=5, row=5, sticky="sw"
+        )
 
     for child in mainframe.winfo_children():
         child.grid_configure(padx=5, pady=5)
 
     root.mainloop()
+
 
 def restart(*args):
     root.destroy()
@@ -190,5 +211,6 @@ def restart(*args):
     # Inheritance of File Descriptors
     subprocess.call(args, env=env, close_fds=False)
 
+
 desktop = os.path.normpath(os.path.expanduser("~/Desktop"))
-start_gui(with_restart_button=False)
+start_gui(with_restart_button=True)

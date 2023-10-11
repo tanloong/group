@@ -1,14 +1,14 @@
 # vim:ft=python
 
-import sys
-sys.setrecursionlimit(sys.getrecursionlimit() * 5)
+import nltk
+nltk.data.path = []
 
 a = Analysis(
-    ['group.py'],
+    ['group/group.py'],
     pathex=[],
     binaries=[],
-    datas=[('data/nltk_data/tokenizers/punkt/english.pickle', 'nltk_data/tokenizers/punkt'),
-           ('data/nltk_data/tokenizers/punkt/PY3/english.pickle', 'nltk_data/tokenizers/punkt/PY3'),
+    datas=[('nltk_data/tokenizers/punkt/english.pickle', 'nltk_data/tokenizers/punkt'),
+           ('nltk_data/tokenizers/punkt/PY3/english.pickle', 'nltk_data/tokenizers/punkt/PY3'),
            ('img', 'img')],
     hiddenimports=[],
     hookspath=[],
